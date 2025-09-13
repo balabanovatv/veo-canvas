@@ -1,42 +1,58 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+/* VEO Factory Design System - Русский AI SaaS для генерации видео */
 
 @layer base {
   :root {
+    /* Основные цвета */
     --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
+    --foreground: 210 22% 10%;
+    
+    /* Текст */
+    --text-primary: 210 22% 10%;
+    --text-secondary: 0 0% 50%;
+    --text-muted: 220 9% 65%;
+    
+    /* Акцентные цвета (градиент #5C6CFF → #7B61FF) */
+    --primary: 234 100% 68%;
+    --primary-dark: 254 82% 69%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Градиенты */
+    --gradient-primary: linear-gradient(135deg, hsl(234 100% 68%), hsl(254 82% 69%));
+    --gradient-primary-hover: linear-gradient(135deg, hsl(234 100% 73%), hsl(254 82% 74%));
+    
+    /* Нейтральные */
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-
-    --radius: 0.5rem;
+    --card-foreground: 210 22% 10%;
+    
+    --border: 220 13% 91%;
+    --border-light: 220 13% 95%;
+    --input: 220 13% 96%;
+    --input-border: 220 13% 91%;
+    
+    /* Состояния */
+    --success: 142 76% 36%;
+    --success-light: 142 76% 94%;
+    --warning: 38 92% 50%;
+    --warning-light: 48 96% 89%;
+    --error: 0 84% 60%;
+    --error-light: 0 93% 94%;
+    
+    /* Тени */
+    --shadow-sm: 0 1px 2px 0 hsl(0 0% 0% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(0 0% 0% / 0.1), 0 2px 4px -2px hsl(0 0% 0% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(0 0% 0% / 0.1), 0 4px 6px -4px hsl(0 0% 0% / 0.1);
+    --shadow-glow: 0 0 40px hsl(234 100% 68% / 0.15);
+    
+    /* Радиусы */
+    --radius: 1rem;
+    --radius-lg: 1.25rem;
+    --radius-xl: 1.5rem;
 
     --sidebar-background: 0 0% 98%;
 
@@ -100,6 +116,67 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-inter;
+  }
+  
+  /* Кастомные компоненты */
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+  
+  .gradient-primary-hover:hover {
+    background: var(--gradient-primary-hover);
+  }
+  
+  .text-gradient {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  
+  .shadow-glow {
+    box-shadow: var(--shadow-glow);
+  }
+  
+  /* Скроллбар стилизация */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--border-light));
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--text-muted));
+    border-radius: 3px;
+  }
+  
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--text-secondary));
+  }
+  
+  /* Анимации */
+  .animate-pulse-slow {
+    animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient 3s ease infinite;
+  }
+  
+  @keyframes gradient {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
   }
 }
