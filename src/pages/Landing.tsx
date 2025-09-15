@@ -136,12 +136,12 @@ export default function Landing() {
             </Badge>
             
             <h1 className="text-5xl md:text-7xl font-bold text-text-primary leading-tight">
-              Здравствуйте, чем я могу{" "}
-              <span className="text-gradient">вам помочь?</span>
+              Создавайте видео{" "}
+              <span className="text-gradient">будущего</span>
             </h1>
             
             <p className="text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed">
-              Создавайте профессиональные видео из текста с помощью передовых AI-технологий. 
+              Профессиональные видео из текста с помощью передовых AI-технологий. 
               Быстро, качественно, на русском языке.
             </p>
             
