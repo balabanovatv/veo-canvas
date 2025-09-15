@@ -132,7 +132,7 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <div className="max-w-4xl mx-auto space-y-8">
             <Badge className="bg-primary/10 text-primary border-primary/20" variant="outline">
-              🚀 Новая эра создания контента
+              Новая эра создания контента
             </Badge>
             
             <h1 className="text-5xl md:text-7xl font-bold text-text-primary leading-tight">
