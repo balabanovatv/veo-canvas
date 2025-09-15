@@ -5,6 +5,7 @@ import { ChatInput } from "@/components/chat-input";
 import { PromptPreview } from "@/components/prompt-preview";
 import { RenderBar } from "@/components/render-bar";
 import { BalanceWidget } from "@/components/balance-widget";
+import { useBalance } from "@/hooks/useBalance";
 import { 
   Video, 
   Sparkles, 
@@ -76,7 +77,7 @@ export default function Dashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [jobs, setJobs] = useState(mockJobs);
-  const [userBalance] = useState(12); // Моковый баланс
+  const { balance: userBalance } = useBalance();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   
   const navigate = useNavigate();
@@ -109,7 +110,7 @@ export default function Dashboard() {
   };
 
   const handleGenerate = async (quantity: number) => {
-    if (userBalance < quantity) {
+    if ((userBalance ?? 0) < quantity) {
       toast({
         title: "Недостаточно кредитов",
         description: "Пополните баланс для продолжения",
@@ -236,7 +237,7 @@ export default function Dashboard() {
         {sidebarOpen && (
           <div className="p-4 border-t border-border-light">
             <BalanceWidget 
-              balance={userBalance} 
+              balance={userBalance ?? 0} 
               onTopUp={handleTopUp}
             />
           </div>
@@ -260,7 +261,7 @@ export default function Dashboard() {
             
             {!sidebarOpen && (
               <BalanceWidget 
-                balance={userBalance} 
+                balance={userBalance ?? 0} 
                 onTopUp={handleTopUp}
                 className="ml-auto"
               />
