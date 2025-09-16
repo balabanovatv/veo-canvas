@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 // Моковые данные для демонстрации
 const mockJobs = [
@@ -82,6 +83,23 @@ export default function Dashboard() {
   
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Защита маршрута: редирект на логин, если нет сессии
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        navigate('/auth/login');
+      }
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) {
+        navigate('/auth/login');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   // Моковые функции для демонстрации
   const handleImprovePrompt = async (text: string) => {
@@ -237,7 +255,7 @@ export default function Dashboard() {
         {sidebarOpen && (
           <div className="p-4 border-t border-border-light">
             <BalanceWidget 
-              balance={userBalance ?? 0} 
+              balance={userBalance ?? 0}
               onTopUp={handleTopUp}
             />
           </div>

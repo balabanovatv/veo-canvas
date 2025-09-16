@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Video, Mail, Lock, User, ArrowLeft, CheckCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-
+import { supabase } from "@/integrations/supabase/client";
 export default function Auth() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
@@ -30,20 +30,49 @@ export default function Auth() {
     email: ""
   });
 
+  // Редирект при активной сессии и отслеживание статуса авторизации
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        navigate('/app');
+      }
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        navigate('/app');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Симуляция входа
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    toast({
-      title: "Добро пожаловать!",
-      description: "Вы успешно вошли в систему"
-    });
-    
-    navigate("/app");
-    setIsLoading(false);
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email: loginForm.email.trim(),
+        password: loginForm.password,
+      });
+      if (error) throw error;
+
+      toast({
+        title: "Добро пожаловать!",
+        description: "Вы успешно вошли в систему",
+      });
+
+      navigate("/app");
+    } catch (err: any) {
+      toast({
+        title: "Ошибка входа",
+        description: err?.message ?? "Не удалось войти",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleRegister = async (e: React.FormEvent) => {
@@ -60,32 +89,62 @@ export default function Auth() {
 
     setIsLoading(true);
 
-    // Симуляция регистрации
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    toast({
-      title: "Регистрация успешна!",
-      description: "Добро пожаловать в VEO Factory"
-    });
-    
-    navigate("/app");
-    setIsLoading(false);
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      const { error } = await supabase.auth.signUp({
+        email: registerForm.email.trim(),
+        password: registerForm.password,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: { name: registerForm.name },
+        },
+      });
+      if (error) throw error;
+
+      toast({
+        title: "Регистрация успешна!",
+        description: "Подтвердите email и войдите в систему"
+      });
+
+      setActiveTab("login");
+    } catch (err: any) {
+      toast({
+        title: "Ошибка регистрации",
+        description: err?.message ?? "Не удалось создать аккаунт",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Симуляция восстановления
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    toast({
-      title: "Письмо отправлено",
-      description: "Проверьте почту для восстановления пароля"
-    });
-    
-    setActiveTab("login");
-    setIsLoading(false);
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        forgotForm.email.trim(),
+        { redirectTo: redirectUrl }
+      );
+      if (error) throw error;
+
+      toast({
+        title: "Письмо отправлено",
+        description: "Проверьте почту для восстановления пароля"
+      });
+
+      setActiveTab("login");
+    } catch (err: any) {
+      toast({
+        title: "Ошибка восстановления",
+        description: err?.message ?? "Не удалось отправить письмо",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
