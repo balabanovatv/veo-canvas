@@ -16,6 +16,8 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   }
 });
 
-// DEBUG: expose supabase in window for console checks
-// @ts-ignore
-globalThis.supabase = supabase;
+// DEBUG: expose supabase to the browser console
+if (typeof window !== 'undefined') {
+  // @ts-ignore
+  window.supabase = supabase;
+}
