@@ -3,21 +3,31 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export function useBalance() {
-  const [balance, setBalance] = useState<number | null>(null);
+  const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let mounted = true;
+    let alive = true;
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
-      const { data } = await supabase
-        .from('credits').select('balance').eq('user_id', user.id).single();
-      if (mounted) setBalance(data?.balance ?? 0);
-      setLoading(false);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { setBalance(0); return; }
+        const { data, error } = await supabase
+          .from('credits')
+          .select('balance')
+          .eq('user_id', user.id)
+          .single();
+        if (error) throw error;
+        if (alive) setBalance(data?.balance ?? 0);
+      } catch (e:any) {
+        if (alive) setError(e.message ?? 'Failed to load balance');
+      } finally {
+        if (alive) setLoading(false);
+      }
     })();
-    return () => { mounted = false; };
+    return () => { alive = false; };
   }, []);
 
-  return { balance, loading };
+  return { balance, loading, error };
 }

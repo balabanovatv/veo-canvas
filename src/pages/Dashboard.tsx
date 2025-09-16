@@ -77,7 +77,7 @@ export default function Dashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [jobs, setJobs] = useState(mockJobs);
-  const { balance: userBalance } = useBalance();
+  const { balance: userBalance, loading, error } = useBalance();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   
   const navigate = useNavigate();
