@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { sendPromptToN8N } from '@/lib/n8n-api';
 
 interface ChatInputProps {
   onSubmit: (text: string) => void;
@@ -20,10 +21,20 @@ export function ChatInput({
   const [text, setText] = useState("");
   const maxLength = 3500;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (text.trim() && !isLoading) {
       onSubmit(text.trim());
+      
+      // Отправляем промпт в n8n webhook
+      try {
+        console.log('🚀 Отправляем в n8n:', text.trim());
+        const result = await sendPromptToN8N(text.trim(), `dialogue-${Date.now()}`);
+        console.log('✅ Результат n8n:', result);
+      } catch (error) {
+        console.error('❌ Ошибка n8n:', error);
+      }
+      
       setText("");
     }
   };
