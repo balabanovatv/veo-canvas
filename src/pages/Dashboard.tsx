@@ -20,6 +20,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { sendPromptToN8N, approvePrompt, getJobStatus } from '@/lib/n8n-api';
 
 // Моковые данные для демонстрации
 const mockJobs = [
@@ -80,6 +81,8 @@ export default function Dashboard() {
   const [jobs, setJobs] = useState(mockJobs);
   const { balance: userBalance, loading, error } = useBalance();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
   
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -101,22 +104,55 @@ export default function Dashboard() {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  // Моковые функции для демонстрации
+  // Polling функция
+  const startPolling = (jobId: string) => {
+    const interval = setInterval(async () => {
+      try {
+        const jobStatus = await getJobStatus(jobId);
+        
+        if (jobStatus.status === 'pending_approval' && jobStatus.n8n_execution_id) {
+          // Показываем промпт для одобрения (используем текущий промпт)
+          setShowPromptPreview(true);
+          clearInterval(interval);
+          setPollingInterval(null);
+        } else if (jobStatus.status === 'completed') {
+          // Обновляем список jobs
+          clearInterval(interval);
+          setPollingInterval(null);
+        }
+      } catch (error) {
+        console.error('Ошибка polling:', error);
+      }
+    }, 2000);
+    
+    setPollingInterval(interval);
+  };
+
   const handleImprovePrompt = async (text: string) => {
     setIsImproving(true);
     setCurrentPrompt(text);
     
-    // Симуляция API вызова
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    try {
+      // Отправляем в n8n и получаем job_id
+      const result = await sendPromptToN8N(text, `dialogue-${Date.now()}`);
+      console.log('✅ Результат n8n:', result);
+      
+      if (result.job_id) {
+        setCurrentJobId(result.job_id);
+        // Устанавливаем улучшенный промпт сразу (будет заменен при получении от n8n)
+        setImprovedPrompt(`Создайте профессиональное видео: ${text}. Используйте кинематографические техники, качественное освещение и плавные переходы. Длительность 30-60 секунд.`);
+        startPolling(result.job_id);
+      }
+    } catch (error) {
+      console.error('❌ Ошибка n8n:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось отправить запрос",
+        variant: "destructive"
+      });
+    }
     
-    setImprovedPrompt(`Создайте профессиональное видео: ${text}. Используйте кинематографические техники, качественное освещение и плавные переходы. Длительность 30-60 секунд.`);
-    setShowPromptPreview(true);
     setIsImproving(false);
-    
-    toast({
-      title: "Промпт улучшен",
-      description: "ИИ оптимизировал ваш запрос для лучшего результата"
-    });
   };
 
   const handleEditPrompt = (newPrompt: string) => {
@@ -128,6 +164,8 @@ export default function Dashboard() {
   };
 
   const handleGenerate = async (quantity: number) => {
+    if (!currentJobId) return;
+    
     if ((userBalance ?? 0) < quantity) {
       toast({
         title: "Недостаточно кредитов",
@@ -139,52 +177,27 @@ export default function Dashboard() {
 
     setIsGenerating(true);
     
-    // Создаём новый джоб
-    const newJob = {
-      id: `job-${Date.now()}`,
-      dialogue_uuid: `uuid-${Date.now()}`,
-      quantity,
-      status: "running" as const,
-      created_at: new Date().toISOString()
-    };
-    
-    setJobs(prev => [newJob, ...prev]);
-    
-    toast({
-      title: "Генерация запущена",
-      description: `Создаём ${quantity} видео. Это займёт несколько минут.`
-    });
-    
-    // Симуляция завершения через 10 секунд
-    setTimeout(() => {
-      setJobs(prev => prev.map(job => 
-        job.id === newJob.id 
-          ? {
-              id: job.id,
-              dialogue_uuid: job.dialogue_uuid,
-              quantity: job.quantity,
-              status: "done" as const,
-              created_at: job.created_at,
-              finished_at: new Date().toISOString(),
-              files: Array.from({ length: quantity }, (_, i) => ({
-                id: `f-${Date.now()}-${i}`,
-                file_url: `/videos/generated-${Date.now()}-${i}.mp4`,
-                thumb_url: `https://picsum.photos/400/225?random=${Date.now() + i}`,
-                duration: 30 + Math.random() * 30,
-                size: 10000000 + Math.random() * 10000000
-              }))
-            }
-          : job
-      ));
-      
-      setIsGenerating(false);
-      setShowPromptPreview(false);
+    try {
+      await approvePrompt(currentJobId, quantity);
       
       toast({
-        title: "Готово!",
-        description: `${quantity} видео успешно сгенерированы`
+        title: "Генерация запущена",
+        description: `Создаём ${quantity} видео. Это займёт несколько минут.`
       });
-    }, 10000);
+      
+      // Продолжаем polling для отслеживания генерации
+      startPolling(currentJobId);
+      
+    } catch (error) {
+      console.error('Ошибка одобрения:', error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось запустить генерацию",
+        variant: "destructive"
+      });
+    }
+    
+    setIsGenerating(false);
   };
 
   const handleRefreshJob = (jobId: string) => {
