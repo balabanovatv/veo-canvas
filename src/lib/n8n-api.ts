@@ -1,6 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
-const N8N_WEBHOOK_URL = 'https://gkexpert.app.n8n.cloud/webhook/create-prompt';
+const N8N_WEBHOOK_URL = 'https://gkexpert.app.n8n.cloud/webhook/veo/generate';
 
 export async function sendPromptToN8N(prompt: string, dialogueUuid: string) {
   const { data: session } = await supabase.auth.getSession();
