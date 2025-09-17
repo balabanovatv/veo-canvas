@@ -10,6 +10,12 @@ export async function sendPromptToN8N(prompt: string, dialogueUuid: string) {
     throw new Error('Пользователь не авторизован');
   }
 
+  console.log('Токен пользователя:', accessToken);
+  console.log('Заголовки запроса:', {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${accessToken}`,
+  });
+
   const response = await fetch(N8N_WEBHOOK_URL, {
     method: 'POST',
     headers: {
