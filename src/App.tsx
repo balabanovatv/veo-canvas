@@ -6,16 +6,14 @@ export default function App() {
     (async () => {
       const email = 'твоя@почта.com';
 
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: { emailRedirectTo: window.location.origin }
-      });
-      if (error) return console.error('OTP error:', error.message);
+      const { error } = await supabase.auth.signInWithPassword({
+  email: 'твой_email',
+  password: 'твой_пароль',
+});
+if (error) console.error(error.message);
 
-      console.log('Magic link sent. Open the email and click the link.');
-      supabase.auth.onAuthStateChange(async (_evt, session) => {
-        if (session?.access_token) {
-          console.log('JWT:', session.access_token.slice(0, 24) + '...');
+const { data:{ session } } = await supabase.auth.getSession();
+console.log('JWT:', session?.access_token?.slice(0,24)+'...');
         }
       });
     })();
