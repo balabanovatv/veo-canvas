@@ -1,27 +1,25 @@
 import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
-function App() {
+export default function App() {
   useEffect(() => {
     (async () => {
-      // ЗАМИНИ на свой email и пароль
-      const email = "test@example.com";
-      const password = "StrongPass123";
+      const email = 'твоя@почта.com';
 
-      // Пытаемся войти
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        console.error("Login error:", error.message);
-        return;
-      }
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: { emailRedirectTo: window.location.origin }
+      });
+      if (error) return console.error('OTP error:', error.message);
 
-      // Получаем сессию и токен
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log("JWT:", session?.access_token?.slice(0, 20) + "...");
+      console.log('Magic link sent. Open the email and click the link.');
+      supabase.auth.onAuthStateChange(async (_evt, session) => {
+        if (session?.access_token) {
+          console.log('JWT:', session.access_token.slice(0, 24) + '...');
+        }
+      });
     })();
   }, []);
 
   return <div>VEO Canvas</div>;
 }
-
-export default App;
