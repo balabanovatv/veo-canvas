@@ -5,8 +5,8 @@ const N8N_APPROVE_URL = 'https://gkexpert.app.n8n.cloud/webhook/veo/approve';
 
 // Создание запроса
 export async function sendPromptToN8N(prompt: string, dialogueUuid: string) {
-  const { data: session } = await supabase.auth.getSession();
-  const accessToken = session?.session?.access_token;
+  const { data: { session } } = await supabase.auth.getSession();
+  const accessToken = session?.access_token;
   
   if (!accessToken) {
     throw new Error('Пользователь не авторизован');
@@ -33,8 +33,8 @@ export async function sendPromptToN8N(prompt: string, dialogueUuid: string) {
 
 // Одобрение промпта
 export async function approvePrompt(jobId: string, quantity: number) {
-  const { data: session } = await supabase.auth.getSession();
-  const accessToken = session?.session?.access_token;
+  const { data: { session } } = await supabase.auth.getSession();
+  const accessToken = session?.access_token;
   
   if (!accessToken) {
     throw new Error('Пользователь не авторизован');
