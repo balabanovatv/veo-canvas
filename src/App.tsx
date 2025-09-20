@@ -1,33 +1,27 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Landing from "./pages/Landing";
-import Dashboard from "./pages/Dashboard";
-import Auth from "./pages/Auth";
-import NotFound from "./pages/NotFound";
+import { useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
-const queryClient = new QueryClient();
+function App() {
+  useEffect(() => {
+    (async () => {
+      // ЗАМИНИ на свой email и пароль
+      const email = "test@example.com";
+      const password = "StrongPass123";
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/auth/login" element={<Auth />} />
-          <Route path="/auth/register" element={<Auth />} />
-          <Route path="/auth/forgot" element={<Auth />} />
-          <Route path="/app" element={<Dashboard />} />
-          <Route path="/app/*" element={<Dashboard />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+      // Пытаемся войти
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        console.error("Login error:", error.message);
+        return;
+      }
+
+      // Получаем сессию и токен
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log("JWT:", session?.access_token?.slice(0, 20) + "...");
+    })();
+  }, []);
+
+  return <div>VEO Canvas</div>;
+}
 
 export default App;
