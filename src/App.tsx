@@ -1,21 +1,20 @@
 import { useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase } from './lib/supabase';
 
 export default function App() {
   useEffect(() => {
     (async () => {
-      const email = 'твоя@почта.com';
+      const email = 'ТВОЙ_EMAIL';
+      const password = 'ТВОЙ_ПАРОЛЬ';
 
-      const { error } = await supabase.auth.signInWithPassword({
-  email: 'твой_email',
-  password: 'твой_пароль',
-});
-if (error) console.error(error.message);
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        console.error('Login error:', error.message);
+        return;
+      }
 
-const { data:{ session } } = await supabase.auth.getSession();
-console.log('JWT:', session?.access_token?.slice(0,24)+'...');
-        }
-      });
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('JWT:', session?.access_token?.slice(0, 24) + '...');
     })();
   }, []);
 
