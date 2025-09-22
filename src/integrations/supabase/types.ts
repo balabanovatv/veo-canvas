@@ -588,12 +588,6 @@ export type Database = {
         Args: { "": string } | { "": unknown }
         Returns: unknown
       }
-      create_job: {
-        Args:
-          | { p_cost: number; p_dialogue_uuid: string; p_prompt: string }
-          | { p_cost?: number; p_dialogue_uuid: string; p_prompt: string }
-        Returns: Json
-      }
       get_price_by_sku: {
         Args: { p_sku: string }
         Returns: {
