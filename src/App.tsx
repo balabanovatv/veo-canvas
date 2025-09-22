@@ -1,22 +1,21 @@
-import { useEffect } from 'react';
-import { supabase } from './lib/supabase';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import Landing from './pages/Landing';
+import Auth from './pages/Auth';
+import Index from './pages/Index';
+import NotFound from './pages/NotFound';
+import { Toaster } from './components/ui/toaster';
 
 export default function App() {
-  useEffect(() => {
-    (async () => {
-      const email = 'ТВОЙ_EMAIL';
-      const password = 'ТВОЙ_ПАРОЛЬ';
-
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        console.error('Login error:', error.message);
-        return;
-      }
-
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('JWT:', session?.access_token?.slice(0, 24) + '...');
-    })();
-  }, []);
-
-  return <div>VEO Canvas</div>;
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/auth/*" element={<Auth />} />
+        <Route path="/app" element={<Index />} />
+        <Route path="/home" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      <Toaster />
+    </BrowserRouter>
+  );
 }
