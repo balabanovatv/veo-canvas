@@ -3,10 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { sendPromptToN8N } from "@/lib/n8n-api";
 
 interface ChatInputProps {
-  onSubmit: (text: string) => void;   // только обнови UI/историю, НЕ дергай тут сеть
+  onSubmit: (text: string) => Promise<void> | void; // сеть вызываем снаружи
   isLoading?: boolean;
   placeholder?: string;
   className?: string;
@@ -19,51 +18,31 @@ export function ChatInput({
   className,
 }: ChatInputProps) {
   const [text, setText] = useState("");
-  const [sending, setSending] = useState(false); // локальный флаг "идет отправка"
-  const uuidRef = useRef<string | null>(null);   // один uuid на одну отправку
+  const [sending, setSending] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const lockRef = useRef(false); // защита от дабл-кликов
   const maxLength = 3500;
 
-  const actuallySend = async (prompt: string) => {
-    // генерим uuid ОДИН раз и переиспользуем, пока запрос не завершится
-    const uuid = uuidRef.current ?? crypto.randomUUID();
-    uuidRef.current = uuid;
-
-    const result = await sendPromptToN8N(prompt, uuid);
-    return result;
-  };
-
-  const handleSubmit = async (e: React.FormEvent | React.KeyboardEvent) => {
-    e.preventDefault();
-    if (!text.trim()) return;
-    if (isLoading || sending) return;      // защита от повторной отправки
-
-    setSending(true);
-    try {
-      // 1) обновляем UI (история и т.п.) — без сетевых вызовов
-      onSubmit(text.trim());
-
-      // 2) реальная отправка в n8n с одним uuid
-      //    если parent сам дергает сеть — убери эту строку и оставь только onSubmit()
-      console.log("🚀 Отправляем в n8n:", text.trim());
-      const res = await actuallySend(text.trim());
-      console.log("✅ Результат n8n:", res);
-
-      // успех — очищаем поле и сбрасываем uuid, чтобы следующая отправка получила новый
-      setText("");
-      uuidRef.current = null;
-    } catch (err) {
-      console.error("❌ Ошибка n8n:", err);
-      // uuid НЕ сбрасываем — чтобы можно было повторить ту же попытку из кода, если захочешь
-    } finally {
-      setSending(false);
-    }
-  };
-
-  // Enter без Shift — отправка. Мы ПРЕДОТВРАЩАЕМ дефолт, поэтому form onSubmit не дублируется
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit(e);
+      formRef.current?.requestSubmit(); // один путь отправки
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const value = text.trim();
+    if (!value || isLoading || sending || lockRef.current) return;
+
+    lockRef.current = true;
+    setSending(true);
+    try {
+      await onSubmit(value);   // ⬅️ только вызываем внешний обработчик
+      setText("");
+    } finally {
+      setSending(false);
+      lockRef.current = false;
     }
   };
 
@@ -72,8 +51,7 @@ export function ChatInput({
 
   return (
     <div className={cn("w-full space-y-4", className)}>
-      {/* оставляем onSubmit, чтобы клик по кнопке отправлял форму ровно ОДИН раз */}
-      <form onSubmit={handleSubmit} className="relative">
+      <form ref={formRef} onSubmit={handleSubmit} className="relative">
         <div className="relative">
           <Textarea
             value={text}
