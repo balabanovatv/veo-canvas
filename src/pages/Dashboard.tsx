@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChatInput } from "@/components/chat-input";
@@ -6,21 +6,21 @@ import { PromptPreview } from "@/components/prompt-preview";
 import { RenderBar } from "@/components/render-bar";
 import { BalanceWidget } from "@/components/balance-widget";
 import { useBalance } from "@/hooks/useBalance";
-import { 
-  Video, 
-  Sparkles, 
+import {
+  Video,
+  Sparkles,
   Menu,
   Home,
   History,
   CreditCard,
   User,
   Plus,
-  MessageSquare
+  MessageSquare,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { sendPromptToN8N, approvePrompt, getJobStatus } from '@/lib/n8n-api';
+import { sendPromptToN8N, approvePrompt, getJobStatus } from "@/lib/n8n-api";
 
 // Моковые данные для демонстрации
 const mockJobs = [
@@ -37,30 +37,30 @@ const mockJobs = [
         file_url: "/videos/example1.mp4",
         thumb_url: "https://picsum.photos/400/225?random=1",
         duration: 45,
-        size: 15728640
+        size: 15728640,
       },
       {
-        id: "f2", 
+        id: "f2",
         file_url: "/videos/example2.mp4",
         thumb_url: "https://picsum.photos/400/225?random=2",
         duration: 30,
-        size: 12582912
-      }
-    ]
+        size: 12582912,
+      },
+    ],
   },
   {
     id: "2",
-    dialogue_uuid: "uuid-2", 
+    dialogue_uuid: "uuid-2",
     quantity: 1,
     status: "running" as const,
-    created_at: "2024-01-15T11:00:00Z"
+    created_at: "2024-01-15T11:00:00Z",
   },
   {
     id: "3",
     dialogue_uuid: "uuid-3",
-    quantity: 1, 
+    quantity: 1,
     status: "queued" as const,
-    created_at: "2024-01-15T11:05:00Z"
+    created_at: "2024-01-15T11:05:00Z",
   },
   {
     id: "4",
@@ -68,8 +68,8 @@ const mockJobs = [
     quantity: 1,
     status: "error" as const,
     error: "Ошибка генерации: недостаточно GPU ресурсов",
-    created_at: "2024-01-15T09:45:00Z"
-  }
+    created_at: "2024-01-15T09:45:00Z",
+  },
 ];
 
 export default function Dashboard() {
@@ -79,26 +79,26 @@ export default function Dashboard() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showPromptPreview, setShowPromptPreview] = useState(false);
   const [jobs, setJobs] = useState(mockJobs);
-  const { balance: userBalance, loading, error } = useBalance();
+  const { balance: userBalance } = useBalance();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
-  
+
+  // --- анти-дабл на уровне страницы + единый uuid для одного диалога ---
+  const inFlightRef = useRef(false);
+  const dialogueUuidRef = useRef<string | null>(null);
+
   const navigate = useNavigate();
   const { toast } = useToast();
 
   // Защита маршрута: редирект на логин, если нет сессии
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        navigate('/auth/login');
-      }
+      if (!session) navigate("/auth/login");
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        navigate('/auth/login');
-      }
+      if (!session) navigate("/auth/login");
     });
 
     return () => subscription.unsubscribe();
@@ -106,98 +106,120 @@ export default function Dashboard() {
 
   // Polling функция
   const startPolling = (jobId: string) => {
+    // перестраховка — на всякий случай чистим прежний интервал
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      setPollingInterval(null);
+    }
+
     const interval = setInterval(async () => {
       try {
         const jobStatus = await getJobStatus(jobId);
-        
-        if (jobStatus.status === 'pending_approval' && jobStatus.n8n_execution_id) {
-          // Показываем промпт для одобрения (используем текущий промпт)
+        if (jobStatus?.status === "pending_approval" && jobStatus?.n8n_execution_id) {
           setShowPromptPreview(true);
           clearInterval(interval);
           setPollingInterval(null);
-        } else if (jobStatus.status === 'completed') {
-          // Обновляем список jobs
+        } else if (jobStatus?.status === "completed") {
+          // здесь можно обновить jobs
           clearInterval(interval);
           setPollingInterval(null);
         }
       } catch (error) {
-        console.error('Ошибка polling:', error);
+        console.error("Ошибка polling:", error);
       }
     }, 2000);
-    
+
     setPollingInterval(interval);
   };
 
+  // основной обработчик отправки из ChatInput
   const handleImprovePrompt = async (text: string) => {
+    if (inFlightRef.current) return; // анти-дабл
+    inFlightRef.current = true;
+
     setIsImproving(true);
     setCurrentPrompt(text);
-    
+
     try {
-      // Отправляем в n8n и получаем job_id
-      const result = await sendPromptToN8N(text, `dialogue-${Date.now()}`);
-      console.log('✅ Результат n8n:', result);
-      
-      if (result.job_id) {
-        setCurrentJobId(result.job_id);
-        // Устанавливаем улучшенный промпт сразу (будет заменен при получении от n8n)
-        setImprovedPrompt(`Создайте профессиональное видео: ${text}. Используйте кинематографические техники, качественное освещение и плавные переходы. Длительность 30-60 секунд.`);
-        startPolling(result.job_id);
+      // генерим и переиспользуем один dialogue_uuid на диалог
+      if (!dialogueUuidRef.current) {
+        dialogueUuidRef.current = crypto.randomUUID();
       }
+      const dialogue_uuid = dialogueUuidRef.current;
+
+      // один вызов в n8n
+      const result = await sendPromptToN8N(text, dialogue_uuid);
+      console.log("✅ Результат n8n:", result);
+
+      // Унифицируем jobId: берем что пришло (job_id | id | dialogue_uuid)
+      const jobId: string =
+        String(result?.job_id ?? result?.id ?? result?.dialogue_uuid ?? dialogue_uuid);
+
+      setCurrentJobId(jobId);
+
+      // сразу показываем превью (потом его можно заменить ответом от n8n)
+      setImprovedPrompt(
+        `Создайте профессиональное видео: ${text}. Используйте кинематографические техники, качественное освещение и плавные переходы. Длительность 30–60 секунд.`
+      );
+
+      // если у тебя есть статус-эндпоинт — запускаем polling
+      startPolling(jobId);
+
+      // показываем экран превью (если его открывает polling, эта строка лишней не будет)
+      setShowPromptPreview(true);
     } catch (error) {
-      console.error('❌ Ошибка n8n:', error);
+      console.error("❌ Ошибка n8n:", error);
       toast({
         title: "Ошибка",
         description: "Не удалось отправить запрос",
-        variant: "destructive"
+        variant: "destructive",
       });
+    } finally {
+      setIsImproving(false);
+      inFlightRef.current = false;
     }
-    
-    setIsImproving(false);
   };
 
   const handleEditPrompt = (newPrompt: string) => {
     setImprovedPrompt(newPrompt);
     toast({
-      title: "Промпт обновлён", 
-      description: "Изменения сохранены"
+      title: "Промпт обновлён",
+      description: "Изменения сохранены",
     });
   };
 
   const handleGenerate = async (quantity: number) => {
     if (!currentJobId) return;
-    
+
     if ((userBalance ?? 0) < quantity) {
       toast({
         title: "Недостаточно кредитов",
         description: "Пополните баланс для продолжения",
-        variant: "destructive"
+        variant: "destructive",
       });
       return;
     }
 
     setIsGenerating(true);
-    
     try {
       await approvePrompt(currentJobId, quantity);
-      
+
       toast({
         title: "Генерация запущена",
-        description: `Создаём ${quantity} видео. Это займёт несколько минут.`
+        description: `Создаём ${quantity} видео. Это займёт несколько минут.`,
       });
-      
-      // Продолжаем polling для отслеживания генерации
+
       startPolling(currentJobId);
-      
     } catch (error) {
-      console.error('Ошибка одобрения:', error);
+      console.error("Ошибка одобрения:", error);
       toast({
         title: "Ошибка",
         description: "Не удалось запустить генерацию",
-        variant: "destructive"
+        variant: "destructive",
       });
+    } finally {
+      setIsGenerating(false);
     }
-    
-    setIsGenerating(false);
   };
 
   const handleRefreshJob = (jobId: string) => {
@@ -208,14 +230,14 @@ export default function Dashboard() {
   const handleDownloadFile = (fileUrl: string, fileName: string) => {
     toast({
       title: "Скачивание",
-      description: `Загружаем ${fileName}...`
+      description: `Загружаем ${fileName}...`,
     });
   };
 
   const handlePlayFile = (fileUrl: string) => {
     toast({
       title: "Открытие видео",
-      description: "Видеоплеер откроется в новом окне"
+      description: "Видеоплеер откроется в новом окне",
     });
   };
 
@@ -228,13 +250,17 @@ export default function Dashboard() {
     { icon: Plus, label: "Создать новый чат", path: "/app/new" },
     { icon: History, label: "История", path: "/app/history" },
     { icon: CreditCard, label: "Биллинг", path: "/app/billing" },
-    { icon: User, label: "Аккаунт", path: "/app/account" }
+    { icon: User, label: "Аккаунт", path: "/app/account" },
   ];
 
   return (
     <div className="h-screen flex bg-background">
       {/* Сайдбар */}
-      <div className={`${sidebarOpen ? 'w-64' : 'w-16'} transition-all duration-300 border-r border-border-light bg-card flex flex-col`}>
+      <div
+        className={`${
+          sidebarOpen ? "w-64" : "w-16"
+        } transition-all duration-300 border-r border-border-light bg-card flex flex-col`}
+      >
         {/* Лого */}
         <div className="p-4 border-b border-border-light">
           <div className="flex items-center gap-3">
@@ -246,31 +272,28 @@ export default function Dashboard() {
             )}
           </div>
         </div>
-        
+
         {/* Навигация */}
         <nav className="flex-1 p-4 space-y-2">
           {sidebarItems.map((item) => (
             <Button
               key={item.path}
               variant={item.active ? "default" : "ghost"}
-              className={`w-full justify-start ${!sidebarOpen && 'px-3'} ${
-                item.active ? 'gradient-primary gradient-primary-hover' : ''
+              className={`w-full justify-start ${!sidebarOpen && "px-3"} ${
+                item.active ? "gradient-primary gradient-primary-hover" : ""
               }`}
               onClick={() => navigate(item.path)}
             >
-              <item.icon className={`w-4 h-4 ${sidebarOpen ? 'mr-3' : ''}`} />
+              <item.icon className={`w-4 h-4 ${sidebarOpen ? "mr-3" : ""}`} />
               {sidebarOpen && item.label}
             </Button>
           ))}
         </nav>
-        
+
         {/* Баланс */}
         {sidebarOpen && (
           <div className="p-4 border-t border-border-light">
-            <BalanceWidget 
-              balance={userBalance ?? 0}
-              onTopUp={handleTopUp}
-            />
+            <BalanceWidget balance={userBalance ?? 0} onTopUp={handleTopUp} />
           </div>
         )}
       </div>
@@ -289,10 +312,10 @@ export default function Dashboard() {
             >
               <Menu className="w-4 h-4" />
             </Button>
-            
+
             {!sidebarOpen && (
-              <BalanceWidget 
-                balance={userBalance ?? 0} 
+              <BalanceWidget
+                balance={userBalance ?? 0}
                 onTopUp={handleTopUp}
                 className="ml-auto"
               />
@@ -311,7 +334,8 @@ export default function Dashboard() {
                       <span className="text-gradient">вам помочь?</span>
                     </h1>
                     <p className="text-xl text-text-secondary max-w-2xl mx-auto">
-                      Опишите видео, которое хотите создать, и я помогу составить идеальный промпт для AI-генерации
+                      Опишите видео, которое хотите создать, и я помогу составить
+                      идеальный промпт для AI-генерации
                     </p>
                   </div>
                 </div>
@@ -356,6 +380,9 @@ export default function Dashboard() {
                       setShowPromptPreview(false);
                       setCurrentPrompt("");
                       setImprovedPrompt("");
+                      setCurrentJobId(null);
+                      // новый диалог — новый uuid
+                      dialogueUuidRef.current = null;
                     }}
                     className="gap-2"
                   >
