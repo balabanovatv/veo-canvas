@@ -94,11 +94,22 @@ export function PromptPreview({
             </div>
           </div>
         ) : (
-          <div className="relative">
+          <div className="relative space-y-3">
             <div className="p-4 bg-background border border-border-light rounded-lg">
               <p className="text-sm text-text-primary leading-relaxed whitespace-pre-wrap">
                 {prompt}
               </p>
+            </div>
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditing(true)}
+                className="gap-2"
+              >
+                <Edit3 className="w-4 h-4" />
+                Редактировать промпт
+              </Button>
             </div>
           </div>
         )}
