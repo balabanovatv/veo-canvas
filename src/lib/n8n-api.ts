@@ -54,6 +54,17 @@ export async function sendPromptToN8N(prompt: string, dialogueUuid: string) {
     dialogue_uuid: dialogueUuid,
   });
 
+  // Создаём новую запись о задаче
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) {
+    await supabase.from("jobs").insert({
+      user_id: user.id,
+      dialogue_uuid: dialogueUuid,
+      status: "queued",
+      prompt
+    });
+  }
+
   // совместимость с существующим фронтом
   if (!resp.job_id && resp.dialogue_uuid) {
     resp.job_id = resp.dialogue_uuid;
