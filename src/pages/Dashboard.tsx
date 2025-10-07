@@ -6,6 +6,7 @@ import { PromptPreview } from "@/components/prompt-preview";
 import { RenderBar } from "@/components/render-bar";
 import { BalanceWidget } from "@/components/balance-widget";
 import { useBalance } from "@/hooks/useBalance";
+import { useJobRealtime } from "@/hooks/useJobRealtime";
 import {
   Video,
   Sparkles,
@@ -20,7 +21,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { sendPromptToN8N, approvePrompt, getJobStatus } from "@/lib/n8n-api";
+import { sendPromptToN8N, approvePrompt } from "@/lib/n8n-api";
 
 // Моковые данные для демонстрации
 const mockJobs = [
@@ -82,7 +83,7 @@ export default function Dashboard() {
   const { balance: userBalance } = useBalance();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [currentJobStatus, setCurrentJobStatus] = useState<string | null>(null);
 
   // --- анти-дабл на уровне страницы + единый uuid для одного диалога ---
   const inFlightRef = useRef(false);
@@ -104,33 +105,26 @@ export default function Dashboard() {
     return () => subscription.unsubscribe();
   }, [navigate]);
 
-  // Polling функция
-  const startPolling = (jobId: string) => {
-    // перестраховка — на всякий случай чистим прежний интервал
-    if (pollingInterval) {
-      clearInterval(pollingInterval);
-      setPollingInterval(null);
+  // Realtime subscription for job status updates
+  useJobRealtime(currentJobId, (newStatus) => {
+    console.log("📡 Job status updated via Realtime:", newStatus);
+    setCurrentJobStatus(newStatus);
+    
+    if (newStatus === "pending_approval") {
+      setShowPromptPreview(true);
+    } else if (newStatus === "done" || newStatus === "completed") {
+      toast({
+        title: "Генерация завершена",
+        description: "Видео готово!",
+      });
+    } else if (newStatus === "error") {
+      toast({
+        title: "Ошибка генерации",
+        description: "Произошла ошибка при генерации видео",
+        variant: "destructive",
+      });
     }
-
-    const interval = setInterval(async () => {
-      try {
-        const jobStatus = await getJobStatus(jobId);
-        if (jobStatus?.status === "pending_approval" && jobStatus?.n8n_execution_id) {
-          setShowPromptPreview(true);
-          clearInterval(interval);
-          setPollingInterval(null);
-        } else if (jobStatus?.status === "completed") {
-          // здесь можно обновить jobs
-          clearInterval(interval);
-          setPollingInterval(null);
-        }
-      } catch (error) {
-        console.error("Ошибка polling:", error);
-      }
-    }, 2000);
-
-    setPollingInterval(interval);
-  };
+  });
 
   // основной обработчик отправки из ChatInput
   const handleImprovePrompt = async (text: string) => {
@@ -160,10 +154,7 @@ export default function Dashboard() {
       // сразу показываем превью (берём prompt из ответа n8n)
       setImprovedPrompt(result.prompt ?? "");
 
-      // если у тебя есть статус-эндпоинт — запускаем polling
-      startPolling(jobId);
-
-      // показываем экран превью (если его открывает polling, эта строка лишней не будет)
+      // показываем экран превью
       setShowPromptPreview(true);
     } catch (error) {
       console.error("❌ Ошибка n8n:", error);
@@ -206,8 +197,6 @@ export default function Dashboard() {
         title: "Генерация запущена",
         description: `Создаём ${quantity} видео. Это займёт несколько минут.`,
       });
-
-      startPolling(currentJobId);
     } catch (error) {
       console.error("Ошибка одобрения:", error);
       toast({
