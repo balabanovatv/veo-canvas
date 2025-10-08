@@ -48,14 +48,16 @@ async function postToN8n(body: Record<string, any>) {
  * Для обратной совместимости возвращаем и job_id (равен dialogue_uuid).
  */
 export async function sendPromptToN8N(prompt: string, dialogueUuid: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  
   const resp = await postToN8n({
     action: "create",
     prompt,
     dialogue_uuid: dialogueUuid,
+    user_id: user?.id,
   });
 
   // Создаём новую запись о задаче
-  const { data: { user } } = await supabase.auth.getUser();
   if (user) {
     await supabase.from("jobs").insert({
       user_id: user.id,
@@ -77,9 +79,12 @@ export async function sendPromptToN8N(prompt: string, dialogueUuid: string) {
  * Параметр называется jobId в твоём коде — используем его как dialogue_uuid.
  */
 export async function getJobStatus(jobId: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  
   return postToN8n({
     action: "status",
     dialogue_uuid: jobId,
+    user_id: user?.id,
   });
 }
 
@@ -88,9 +93,12 @@ export async function getJobStatus(jobId: string) {
  * Параметр jobId — это dialogue_uuid.
  */
 export async function approvePrompt(jobId: string, quantity: number) {
+  const { data: { user } } = await supabase.auth.getUser();
+  
   return postToN8n({
     action: "approve",
     dialogue_uuid: jobId,
     quantity,
+    user_id: user?.id,
   });
 }
