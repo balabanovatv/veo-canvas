@@ -5,7 +5,6 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Download, Play, RotateCcw, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
 type JobStatus = 'queued' | 'running' | 'done' | 'error';
@@ -64,6 +63,64 @@ export function RenderBar({
       return () => clearInterval(interval);
     }
   }, [jobs, onRefreshJob]);
+  // 🧩 Realtime подписка Supabase
+  useEffect(() => {
+    console.log('📡 Подключаемся к Supabase Realtime...');
+
+    const channel = supabase
+      .channel('jobs-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'jobs',
+        },
+        async (payload) => {
+          console.log('📨 Realtime событие:', payload.new);
+
+          const updatedJob = payload.new;
+
+          // Если задача завершена
+          if (updatedJob.status === 'done') {
+            console.log(`✅ Задача ${updatedJob.id} завершена. Загружаем видео...`);
+
+            // Загружаем файл из job_files
+            const { data: files, error } = await supabase
+              .from('job_files')
+              .select('id, file_url, thumb_url')
+              .eq('job_id', updatedJob.id);
+
+            if (error) {
+              console.error('Ошибка загрузки файлов:', error);
+              return;
+            }
+
+            // Формируем объект для обновления
+            const newFiles = files?.map((f) => ({
+              id: f.id,
+              file_url: f.file_url,
+              thumb_url: f.thumb_url,
+            }));
+
+            // Вызываем onRefreshJob, если он есть, чтобы фронт перерисовал карточку
+            if (onRefreshJob) {
+              onRefreshJob(updatedJob.id);
+            }
+
+            // Или просто можно перерисовать UI вручную:
+            // Здесь ты можешь напрямую обновить state или jobs через callback
+            console.log('🎬 Видео готово:', newFiles);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      console.log('❌ Отписываемся от Supabase Realtime');
+      supabase.removeChannel(channel);
+    };
+  }, []);
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
