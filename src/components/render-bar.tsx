@@ -5,6 +5,8 @@ import { StatusPill } from "@/components/ui/status-pill";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Download, Play, RotateCcw, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 type JobStatus = 'queued' | 'running' | 'done' | 'error';
 
